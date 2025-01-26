@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CalendarIcon, ClockIcon } from '@heroicons/react/outline';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 const getColorPriority = (color, defaultColors) => {
   const index = defaultColors.indexOf(color);
@@ -29,6 +30,14 @@ const sortCards = (cards, defaultColors) => {
   });
 };
 
+// Add reorder helper function
+const reorderColumns = (list, startIndex, endIndex) => {
+  const result = Array.from(list);
+  const [removed] = result.splice(startIndex, 1);
+  result.splice(endIndex, 0, removed);
+  return result;
+};
+
 const Management = () => {
   const defaultColors = [
     '#FF5252', // red - highest priority
@@ -56,7 +65,8 @@ const Management = () => {
         color: defaultColors[0],
         dueDate: null,
         notes: '',
-        archived: false
+        archived: false,
+        progress: 0 // Add progress property
       }] 
     }
   ]);
@@ -87,7 +97,8 @@ const Management = () => {
           color: defaultColors[0],
           dueDate: null,
           notes: '', // Add notes field
-          archived: false
+          archived: false,
+          progress: 0 // Add progress property
         };
         return { ...column, cards: [...column.cards, newCard] };
       }
@@ -308,6 +319,21 @@ const Management = () => {
     }
   };
 
+  const toggleCardArchive = (columnId, cardId) => {
+    setColumns(columns.map(column => {
+      if (column.id === columnId) {
+        const updatedCards = column.cards.map(card => {
+          if (card.id === cardId) {
+            return { ...card, archived: !card.archived };
+          }
+          return card;
+        });
+        return { ...column, cards: updatedCards };
+      }
+      return column;
+    }));
+  };
+  
   // Add rename project function
   const renameProject = (projectId, newName) => {
     if (!newName.trim()) return;
@@ -322,12 +348,55 @@ const Management = () => {
     return project ? project.name : 'No Project';
   };
 
+  const onDragEnd = (result) => {
+    if (!result.destination) return;
+    
+    const items = reorderColumns(
+      columns,
+      result.source.index,
+      result.destination.index
+    );
+    
+    setColumns(items);
+  };
+
+  // Add progress update function
+  const updateCardProgress = (columnId, cardId, progress) => {
+    setColumns(columns.map(column => {
+      if (column.id === columnId) {
+        const updatedCards = column.cards.map(card => {
+          if (card.id === cardId) {
+            return { ...card, progress: parseInt(progress) };
+          }
+          return card;
+        });
+        return { ...column, cards: updatedCards };
+      }
+      return column;
+    }));
+  };
+
+  // Add progress bar component
+  const ProgressBar = ({ progress }) => {
+    if (progress <= 0) return null;
+    
+    return (
+      <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden">
+        <div 
+          className="h-full bg-green-500 transition-all duration-300"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+    );
+  };
+
   return (
     <div className="p-6">
-      {/* Global Controls Section */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold">Management Board</h1>
+          
+          {/* Project Controls */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSelectedProjectId(null)}
@@ -354,8 +423,33 @@ const Management = () => {
             </select>
           </div>
         </div>
-        
+
+        {/* Card Controls */}
         <div className="flex items-center gap-4">
+          <div className="flex gap-2">
+            <button
+              onClick={expandAll}
+              className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 
+                       transition-colors flex items-center gap-1"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+              Expand All
+            </button>
+            <button
+              onClick={collapseAll}
+              className="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600 
+                       transition-colors flex items-center gap-1"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+              Collapse All
+            </button>
+          </div>
+
+          {/* Existing Toggles */}
           <label className="flex items-center space-x-2">
             <input 
               type="checkbox" 
@@ -377,220 +471,161 @@ const Management = () => {
         </div>
       </div>
 
-      {/* Board Section */}
-      <div className="flex space-x-4 overflow-x-auto pb-4">
-        {/* Top 10 Section */}
-        {showTop10 && (
-          <div className="flex-none w-80 bg-gradient-to-b from-blue-50 to-white rounded-lg p-4">
-            <h3 className="font-bold text-blue-800 mb-3">Top 10 Priority Tasks</h3>
-            <div className="space-y-2">
-              {getTop10Cards().map(card => (
-                <div 
-                  key={card.id} 
-                  className="bg-white rounded shadow-sm overflow-hidden border-l-4"
-                  style={{ borderLeftColor: card.color }}
-                >
-                  <div className="p-3">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex justify-between items-start">
-                        <div className="flex flex-col">
-                          <div className="text-xs">
-                            <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                              {getProjectName(card.projectId)}
-                            </span>
+      <DragDropContext onDragEnd={onDragEnd}>
+        <Droppable droppableId="columns" direction="horizontal">
+          {(provided) => (
+            <div 
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              className="flex space-x-4 overflow-x-auto pb-4"
+            >
+              {/* Top 10 Section outside draggable area */}
+              {showTop10 && (
+                <div className="flex-none w-80 bg-gradient-to-b from-blue-50 to-white rounded-lg p-4">
+                  <h3 className="font-bold text-blue-800 mb-3">Top 10 Priority Tasks</h3>
+                  <div className="space-y-2">
+                    {getTop10Cards().map(card => (
+                      <div 
+                        key={card.id} 
+                        className="bg-white rounded shadow-sm overflow-hidden border-l-4"
+                        style={{ borderLeftColor: card.color }}
+                      >
+                        <div className="p-3">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex justify-between items-start">
+                              <div className="flex flex-col">
+                                <div className="text-xs">
+                                  <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                    {getProjectName(card.projectId)}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  From: {card.columnTitle}
+                                </div>
+                                <div className="font-medium mt-1">
+                                  {card.title}
+                                </div>
+                              </div>
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => locateCard(card.id, card.columnId)}
+                                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                                  title="Locate in board"
+                                >
+                                  <svg 
+                                    className="h-4 w-4 text-gray-500" 
+                                    fill="none" 
+                                    viewBox="0 0 24 24" 
+                                    stroke="currentColor"
+                                  >
+                                    <path 
+                                      strokeLinecap="round" 
+                                      strokeLinejoin="round" 
+                                      strokeWidth={2} 
+                                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                    />
+                                    <path 
+                                      strokeLinecap="round" 
+                                      strokeLinejoin="round" 
+                                      strokeWidth={2} 
+                                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                    />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={() => toggleTopCardNotes(card.id)}
+                                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                                >
+                                  <svg 
+                                    className={`h-4 w-4 text-gray-500 transform transition-transform ${
+                                      expandedTopCards[card.id] ? 'rotate-180' : ''
+                                    }`}
+                                    fill="none" 
+                                    viewBox="0 0 24 24" 
+                                    stroke="currentColor"
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                            {card.dueDate && (
+                              <div className="text-xs text-gray-600 mt-1">
+                                Due: {new Date(card.dueDate).toLocaleDateString()}
+                              </div>
+                            )}
+                            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                              expandedTopCards[card.id] ? 'max-h-32 opacity-100 mt-2' : 'max-h-0 opacity-0'
+                            }`}>
+                              {card.notes ? (
+                                <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                                  {card.notes}
+                                </div>
+                              ) : (
+                                <div className="text-sm text-gray-400 italic">
+                                  No notes available
+                                </div>
+                              )}
+                            </div>
+                            {card.progress > 0 && (
+                              <div className="mt-2">
+                                <ProgressBar progress={card.progress} />
+                              </div>
+                            )}
                           </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            From: {card.columnTitle}
-                          </div>
-                          <div className="font-medium mt-1">
-                            {card.title}
-                          </div>
-                        </div>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => locateCard(card.id, card.columnId)}
-                            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                            title="Locate in board"
-                          >
-                            <svg 
-                              className="h-4 w-4 text-gray-500" 
-                              fill="none" 
-                              viewBox="0 0 24 24" 
-                              stroke="currentColor"
-                            >
-                              <path 
-                                strokeLinecap="round" 
-                                strokeLinejoin="round" 
-                                strokeWidth={2} 
-                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                              />
-                              <path 
-                                strokeLinecap="round" 
-                                strokeLinejoin="round" 
-                                strokeWidth={2} 
-                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                              />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => toggleTopCardNotes(card.id)}
-                            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                          >
-                            <svg 
-                              className={`h-4 w-4 text-gray-500 transform transition-transform ${
-                                expandedTopCards[card.id] ? 'rotate-180' : ''
-                              }`}
-                              fill="none" 
-                              viewBox="0 0 24 24" 
-                              stroke="currentColor"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </button>
                         </div>
                       </div>
-                      {card.dueDate && (
-                        <div className="text-xs text-gray-600 mt-1">
-                          Due: {new Date(card.dueDate).toLocaleDateString()}
-                        </div>
-                      )}
-                      <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                        expandedTopCards[card.id] ? 'max-h-32 opacity-100 mt-2' : 'max-h-0 opacity-0'
-                      }`}>
-                        {card.notes ? (
-                          <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                            {card.notes}
-                          </div>
-                        ) : (
-                          <div className="text-sm text-gray-400 italic">
-                            No notes available
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+              )}
 
-        {/* Filtered Columns */}
-        {getFilteredColumns().map(column => (
-          <div id={`column-${column.id}`} key={column.id} className="flex-none w-80 bg-gray-100 rounded-lg p-4">
-            <div className="flex justify-between items-center mb-3">
-              <input
-                value={column.title}
-                onChange={(e) => updateColumnTitle(column.id, e.target.value)}
-                className="font-semibold text-gray-700 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-1"
-              />
-              <button
-                onClick={() => deleteColumn(column.id)}
-                className="p-1.5 hover:bg-red-100 rounded-full transition-colors group"
-                title="Delete column"
-              >
-                <svg 
-                  className="h-4 w-4 text-gray-400 group-hover:text-red-500" 
-                  fill="none" 
-                  viewBox="0 0 24 24" 
-                  stroke="currentColor"
+              {/* Draggable Columns */}
+              {getFilteredColumns().map((column, index) => (
+                <Draggable 
+                  key={column.id} 
+                  draggableId={column.id.toString()} 
+                  index={index}
                 >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" 
-                  />
-                </svg>
-              </button>
-            </div>
-            
-            {/* Project selector - more minimal design */}
-            <div className="relative group">
-              <select
-                value={column.projectId || ''}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === 'new') {
-                    const name = prompt('Enter new project name:');
-                    if (name) {
-                      const newProject = { id: Date.now(), name };
-                      setProjects([...projects, newProject]);
-                      updateColumnProject(column.id, newProject.id);
-                    }
-                  } else if (value.startsWith('rename_')) {
-                    const projectId = Number(value.replace('rename_', ''));
-                    const project = projects.find(p => p.id === projectId);
-                    if (project) {
-                      const newName = prompt('Enter new project name:', project.name);
-                      if (newName && newName !== project.name) {
-                        renameProject(projectId, newName);
-                      }
-                    }
-                    // Reset select to current project
-                    e.target.value = column.projectId || '';
-                  } else {
-                    updateColumnProject(column.id, Number(value));
-                  }
-                }}
-                className="w-full text-xs bg-transparent border-none hover:bg-gray-200 
-                         rounded px-2 py-1 focus:outline-none focus:ring-1 
-                         focus:ring-blue-500 cursor-pointer appearance-none"
-              >
-                <option value="" className="text-gray-400">📂 Select Project...</option>
-                {projects.map(project => (
-                  <optgroup key={project.id} label="─────────────">
-                    <option value={project.id}>📁 {project.name}</option>
-                    <option value={`rename_${project.id}`} className="text-blue-500">
-                      ✏️ Rename "{project.name}"
-                    </option>
-                  </optgroup>
-                ))}
-                <option value="new" className="font-medium text-blue-500">
-                  ➕ Add New Project...
-                </option>
-              </select>
-              
-              {/* Custom dropdown arrow */}
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                <svg 
-                  className="h-4 w-4 text-gray-400" 
-                  fill="none" 
-                  viewBox="0 0 24 24" 
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
-            {/* Separator and spacing */}
-            <div className="h-px bg-gray-200 my-4"></div>
-            {/* Existing cards section */}
-            <div className="space-y-2">
-              {getFilteredAndSortedCards(column.cards, defaultColors).map(card => (
-                <div 
-                  id={`card-${card.id}`}
-                  key={card.id} 
-                  className={`bg-white rounded shadow-sm overflow-hidden ${
-                    card.archived ? 'opacity-50' : ''
-                  }`}
-                >
-                  <div className="h-2" style={{ backgroundColor: card.color }} />
-                  <div className="p-3">
-                    <div className="flex justify-between items-center">
-                      <input
-                        value={card.title}
-                        onChange={(e) => updateCardTitle(column.id, card.id, e.target.value)}
-                        className="w-full border-none focus:ring-2 focus:ring-blue-500 rounded p-1"
-                      />
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => archiveCard(column.id, card.id)}
-                          className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                          title="Archive task"
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.draggableProps}
+                      className={`flex-none w-80 bg-gray-100 rounded-lg p-4 ${
+                        snapshot.isDragging ? 'shadow-lg' : ''
+                      }`}
+                    >
+                      <div className="flex justify-between items-center mb-3">
+                        <div 
+                          {...provided.dragHandleProps}
+                          className="cursor-move p-1 hover:bg-gray-200 rounded"
                         >
                           <svg 
-                            className="h-5 w-5 text-gray-500" 
+                            className="h-4 w-4 text-gray-400" 
+                            fill="none" 
+                            viewBox="0 0 24 24" 
+                            stroke="currentColor"
+                          >
+                            <path 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round" 
+                              strokeWidth={2} 
+                              d="M4 8h16M4 16h16" 
+                            />
+                          </svg>
+                        </div>
+                        <input
+                          value={column.title}
+                          onChange={(e) => updateColumnTitle(column.id, e.target.value)}
+                          className="font-semibold text-gray-700 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-1"
+                        />
+                        <button
+                          onClick={() => deleteColumn(column.id)}
+                          className="p-1.5 hover:bg-red-100 rounded-full transition-colors group"
+                          title="Delete column"
+                        >
+                          <svg 
+                            className="h-4 w-4 text-gray-400 group-hover:text-red-500" 
                             fill="none" 
                             viewBox="0 0 24 24" 
                             stroke="currentColor"
@@ -603,99 +638,262 @@ const Management = () => {
                             />
                           </svg>
                         </button>
-                        <button
-                          onClick={() => toggleCardOptions(card.id)}
-                          className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                      </div>
+                      {/* Project selector - more minimal design */}
+                      <div className="relative group">
+                        <select
+                          value={column.projectId || ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === 'new') {
+                              const name = prompt('Enter new project name:');
+                              if (name) {
+                                const newProject = { id: Date.now(), name };
+                                setProjects([...projects, newProject]);
+                                updateColumnProject(column.id, newProject.id);
+                              }
+                            } else if (value.startsWith('rename_')) {
+                              const projectId = Number(value.replace('rename_', ''));
+                              const project = projects.find(p => p.id === projectId);
+                              if (project) {
+                                const newName = prompt('Enter new project name:', project.name);
+                                if (newName && newName !== project.name) {
+                                  renameProject(projectId, newName);
+                                }
+                              }
+                              // Reset select to current project
+                              e.target.value = column.projectId || '';
+                            } else {
+                              updateColumnProject(column.id, Number(value));
+                            }
+                          }}
+                          className="w-full text-xs bg-transparent border-none hover:bg-gray-200 
+                                   rounded px-2 py-1 focus:outline-none focus:ring-1 
+                                   focus:ring-blue-500 cursor-pointer appearance-none"
                         >
-                          <svg className={`h-5 w-5 text-gray-500 transform transition-transform ${expandedCards[card.id] ? 'rotate-180' : ''}`} 
-                               fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <option value="" className="text-gray-400">📂 Select Project...</option>
+                          {projects.map(project => (
+                            <optgroup key={project.id} label="─────────────">
+                              <option value={project.id}>📁 {project.name}</option>
+                              <option value={`rename_${project.id}`} className="text-blue-500">
+                                ✏️ Rename "{project.name}"
+                              </option>
+                            </optgroup>
+                          ))}
+                          <option value="new" className="font-medium text-blue-500">
+                            ➕ Add New Project...
+                          </option>
+                        </select>
+                        
+                        {/* Custom dropdown arrow */}
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                          <svg 
+                            className="h-4 w-4 text-gray-400" 
+                            fill="none" 
+                            viewBox="0 0 24 24" 
+                            stroke="currentColor"
+                          >
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
-                        </button>
+                        </div>
                       </div>
+                      {/* Separator and spacing */}
+                      <div className="h-px bg-gray-200 my-4"></div>
+                      {/* Existing cards section */}
+                      <div className="space-y-2">
+                        {getFilteredAndSortedCards(column.cards, defaultColors).map(card => (
+                          <div 
+                            id={`card-${card.id}`}
+                            key={card.id} 
+                            className={`bg-white rounded shadow-sm overflow-hidden ${
+                              card.archived ? 'opacity-50' : ''
+                            }`}
+                          >
+                            <div className="h-2" style={{ backgroundColor: card.color }} />
+                            <div className="p-3">
+                              <div className="flex justify-between items-center">
+                                <input
+                                  value={card.title}
+                                  onChange={(e) => updateCardTitle(column.id, card.id, e.target.value)}
+                                  className="w-full border-none focus:ring-2 focus:ring-blue-500 rounded p-1"
+                                />
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => toggleCardArchive(column.id, card.id)}
+                                    className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                                    title={card.archived ? "Restore task" : "Archive task"}
+                                  >
+                                    {card.archived ? (
+                                      <svg 
+                                        className="h-5 w-5 text-green-500 hover:text-green-600" 
+                                        fill="none" 
+                                        viewBox="0 0 24 24" 
+                                        stroke="currentColor"
+                                      >
+                                        <path 
+                                          strokeLinecap="round" 
+                                          strokeLinejoin="round" 
+                                          strokeWidth={2} 
+                                          d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
+                                        />
+                                      </svg>
+                                    ) : (
+                                      <svg 
+                                        className="h-5 w-5 text-gray-500 hover:text-gray-600" 
+                                        fill="none" 
+                                        viewBox="0 0 24 24" 
+                                        stroke="currentColor"
+                                      >
+                                        <path 
+                                          strokeLinecap="round" 
+                                          strokeLinejoin="round" 
+                                          strokeWidth={2} 
+                                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" 
+                                        />
+                                      </svg>
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={() => toggleCardOptions(card.id)}
+                                    className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                                  >
+                                    <svg className={`h-5 w-5 text-gray-500 transform transition-transform ${expandedCards[card.id] ? 'rotate-180' : ''}`} 
+                                         fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Due date notification - Always visible */}
+                              {card.dueDate && (
+                                <div className={`mt-2 flex items-center gap-2 text-sm rounded-md p-2
+                                  ${getTimeRemaining(card.dueDate) === 'Expired' 
+                                    ? 'bg-red-50 text-red-600' 
+                                    : 'bg-blue-50 text-blue-600'}`}>
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{formatDueDate(card.dueDate)}</span>
+                                    <span className="text-xs opacity-75">{getTimeRemaining(card.dueDate)}</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Show progress bar if progress > 0 and card is collapsed */}
+                              {!expandedCards[card.id] && card.progress > 0 && (
+                                <div className="mt-2">
+                                  <ProgressBar progress={card.progress} />
+                                </div>
+                              )}
+
+                              {/* Collapsible options */}
+                              <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                                expandedCards[card.id] ? 'max-h-96 opacity-100 mt-3' : 'max-h-0 opacity-0'
+                              }`}>
+                                <div className="space-y-3">
+                                  {/* Date picker */}
+                                  <div className="flex items-center gap-2">
+                                    <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <input
+                                      type="datetime-local"
+                                      value={card.dueDate || ''}
+                                      onChange={(e) => updateCardDueDate(column.id, card.id, e.target.value)}
+                                      className="text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1 
+                                               hover:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500
+                                               transition-all duration-200 w-full cursor-pointer"
+                                    />
+                                  </div>
+
+                                  {/* Color picker */}
+                                  <div className="flex gap-1">
+                                    {defaultColors.map(color => (
+                                      <button
+                                        key={color}
+                                        onClick={() => updateCardColor(column.id, card.id, color)}
+                                        className="w-6 h-6 rounded-full border-2 border-white hover:scale-110 transition-transform"
+                                        style={{ backgroundColor: color }}
+                                      />
+                                    ))}
+                                  </div>
+
+                                  {/* Add notes textarea */}
+                                  <div className="mt-3">
+                                    <textarea
+                                      value={card.notes || ''}
+                                      onChange={(e) => updateCardNotes(column.id, card.id, e.target.value)}
+                                      placeholder="Add notes..."
+                                      className="w-full min-h-[80px] text-sm bg-gray-50 border border-gray-200 
+                                               rounded px-2 py-1 hover:border-blue-400 focus:outline-none 
+                                               focus:ring-1 focus:ring-blue-500 transition-all duration-200 
+                                               resize-none"
+                                    />
+                                  </div>
+
+                                  {/* Add progress slider */}
+                                  <div className="space-y-1">
+                                    <div className="flex justify-between text-xs text-gray-500">
+                                      <span>Progress</span>
+                                      <span>{card.progress}%</span>
+                                    </div>
+                                    <input
+                                      type="range"
+                                      min="0"
+                                      max="100"
+                                      value={card.progress}
+                                      onChange={(e) => updateCardProgress(column.id, card.id, e.target.value)}
+                                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => addCard(column.id)}
+                        className="w-full mt-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                      >
+                        + Add Card
+                      </button>
                     </div>
-
-                    {/* Due date notification - Always visible */}
-                    {card.dueDate && (
-                      <div className={`mt-2 flex items-center gap-2 text-sm rounded-md p-2
-                        ${getTimeRemaining(card.dueDate) === 'Expired' 
-                          ? 'bg-red-50 text-red-600' 
-                          : 'bg-blue-50 text-blue-600'}`}>
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{formatDueDate(card.dueDate)}</span>
-                          <span className="text-xs opacity-75">{getTimeRemaining(card.dueDate)}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Collapsible options */}
-                    <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                      expandedCards[card.id] ? 'max-h-96 opacity-100 mt-3' : 'max-h-0 opacity-0'
-                    }`}>
-                      <div className="space-y-3">
-                        {/* Date picker */}
-                        <div className="flex items-center gap-2">
-                          <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          <input
-                            type="datetime-local"
-                            value={card.dueDate || ''}
-                            onChange={(e) => updateCardDueDate(column.id, card.id, e.target.value)}
-                            className="text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1 
-                                     hover:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500
-                                     transition-all duration-200 w-full cursor-pointer"
-                          />
-                        </div>
-
-                        {/* Color picker */}
-                        <div className="flex gap-1">
-                          {defaultColors.map(color => (
-                            <button
-                              key={color}
-                              onClick={() => updateCardColor(column.id, card.id, color)}
-                              className="w-6 h-6 rounded-full border-2 border-white hover:scale-110 transition-transform"
-                              style={{ backgroundColor: color }}
-                            />
-                          ))}
-                        </div>
-
-                        {/* Add notes textarea */}
-                        <div className="mt-3">
-                          <textarea
-                            value={card.notes || ''}
-                            onChange={(e) => updateCardNotes(column.id, card.id, e.target.value)}
-                            placeholder="Add notes..."
-                            className="w-full min-h-[80px] text-sm bg-gray-50 border border-gray-200 
-                                     rounded px-2 py-1 hover:border-blue-400 focus:outline-none 
-                                     focus:ring-1 focus:ring-blue-500 transition-all duration-200 
-                                     resize-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  )}
+                </Draggable>
               ))}
+              {provided.placeholder}
+
+              {/* Add Column Button */}
+              <div className="flex-none w-80 flex items-start">
+                <button
+                  onClick={addColumn}
+                  className="w-full mt-2 p-3 bg-gray-100 hover:bg-gray-200 
+                           text-gray-600 rounded-lg transition-colors duration-200
+                           flex items-center justify-center gap-2"
+                >
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                    />
+                  </svg>
+                  Add Column
+                </button>
+              </div>
             </div>
-            <button
-              onClick={() => addCard(column.id)}
-              className="w-full mt-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-            >
-              + Add Card
-            </button>
-          </div>
-        ))}
-        <button
-          onClick={addColumn}
-          className="flex-none w-80 h-fit mt-10 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
-        >
-          + Add Column
-        </button>
-      </div>
+          )}
+        </Droppable>
+      </DragDropContext>
     </div>
   );
 };
