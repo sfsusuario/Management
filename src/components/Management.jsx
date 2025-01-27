@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CalendarIcon, ClockIcon } from '@heroicons/react/outline';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
@@ -78,6 +78,10 @@ const Management = () => {
 
   // Add new state for project filtering
   const [selectedProjectId, setSelectedProjectId] = useState(null);
+
+  // Add new states
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState(null);
 
   const addColumn = () => {
     const newColumn = {
@@ -333,7 +337,7 @@ const Management = () => {
       return column;
     }));
   };
-  
+
   // Add rename project function
   const renameProject = (projectId, newName) => {
     if (!newName.trim()) return;
@@ -390,6 +394,96 @@ const Management = () => {
     );
   };
 
+  // Add save/load functions
+  const saveToLocalStorage = async () => {
+    setIsSaving(true);
+    const data = {
+      projects,
+      columns,
+      expandedCards,
+      showArchived,
+      showTop10,
+      selectedProjectId
+    };
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
+      localStorage.setItem('managementBoardData', JSON.stringify(data));
+      setLastSaved(new Date().toLocaleTimeString());
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Add load function
+  const loadFromLocalStorage = () => {
+    const saved = localStorage.getItem('managementBoardData');
+    if (saved) {
+      const data = JSON.parse(saved);
+      setProjects(data.projects);
+      setColumns(data.columns);
+      setExpandedCards(data.expandedCards);
+      setShowArchived(data.showArchived);
+      setShowTop10(data.showTop10);
+      setSelectedProjectId(data.selectedProjectId);
+    }
+  };
+
+  // Add export function
+  const exportData = () => {
+    const data = {
+      projects,
+      columns,
+      expandedCards,
+      showArchived,
+      showTop10,
+      selectedProjectId
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `management-board-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Add import function
+  const importData = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          setProjects(data.projects);
+          setColumns(data.columns);
+          setExpandedCards(data.expandedCards);
+          setShowArchived(data.showArchived);
+          setShowTop10(data.showTop10);
+          setSelectedProjectId(data.selectedProjectId);
+        } catch (error) {
+          alert('Invalid file format');
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  // Add useEffect for auto-save
+  useEffect(() => {
+    // Load initial data
+    loadFromLocalStorage();
+    
+    // Setup auto-save interval
+    const interval = setInterval(() => {
+      saveToLocalStorage();
+    }, 60000); // Every minute
+    
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -424,8 +518,61 @@ const Management = () => {
           </div>
         </div>
 
-        {/* Card Controls */}
+        {/* Add new control section */}
         <div className="flex items-center gap-4">
+          <div className="flex gap-2">
+            <input
+              type="file"
+              accept=".json"
+              onChange={importData}
+              className="hidden"
+              id="import-file"
+            />
+            <label
+              htmlFor="import-file"
+              className="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600 
+                       transition-colors cursor-pointer flex items-center gap-1"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              Import
+            </label>
+            <button
+              onClick={exportData}
+              className="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600 
+                       transition-colors flex items-center gap-1"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Export
+            </button>
+            <button
+              onClick={saveToLocalStorage}
+              disabled={isSaving}
+              className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 
+                       transition-colors flex items-center gap-1 relative"
+            >
+              {isSaving ? (
+                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                </svg>
+              )}
+              Save
+              {lastSaved && (
+                <span className="text-xs opacity-75 ml-2">
+                  Last: {lastSaved}
+                </span>
+              )}
+            </button>
+          </div>
+          {/* ...existing controls... */}
           <div className="flex gap-2">
             <button
               onClick={expandAll}
