@@ -484,6 +484,23 @@ const Management = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Add delete card permanently function
+  const deleteCardPermanently = (columnId, cardId) => {
+    if (!window.confirm('Are you sure you want to permanently delete this card?')) {
+      return;
+    }
+    
+    setColumns(columns.map(column => {
+      if (column.id === columnId) {
+        return {
+          ...column,
+          cards: column.cards.filter(card => card.id !== cardId)
+        };
+      }
+      return column;
+    }));
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -865,26 +882,53 @@ const Management = () => {
                                   className="w-full border-none focus:ring-2 focus:ring-blue-500 rounded p-1"
                                 />
                                 <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => toggleCardArchive(column.id, card.id)}
-                                    className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                                    title={card.archived ? "Restore task" : "Archive task"}
-                                  >
-                                    {card.archived ? (
-                                      <svg 
-                                        className="h-5 w-5 text-green-500 hover:text-green-600" 
-                                        fill="none" 
-                                        viewBox="0 0 24 24" 
-                                        stroke="currentColor"
+                                  {card.archived ? (
+                                    <div className="flex gap-1">
+                                      <button
+                                        onClick={() => toggleCardArchive(column.id, card.id)}
+                                        className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                                        title="Restore task"
                                       >
-                                        <path 
-                                          strokeLinecap="round" 
-                                          strokeLinejoin="round" 
-                                          strokeWidth={2} 
-                                          d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
-                                        />
-                                      </svg>
-                                    ) : (
+                                        <svg 
+                                          className="h-5 w-5 text-green-500 hover:text-green-600" 
+                                          fill="none" 
+                                          viewBox="0 0 24 24" 
+                                          stroke="currentColor"
+                                        >
+                                          <path 
+                                            strokeLinecap="round" 
+                                            strokeLinejoin="round" 
+                                            strokeWidth={2} 
+                                            d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
+                                          />
+                                        </svg>
+                                      </button>
+                                      <button
+                                        onClick={() => deleteCardPermanently(column.id, card.id)}
+                                        className="p-1 hover:bg-red-100 rounded-full transition-colors"
+                                        title="Delete permanently"
+                                      >
+                                        <svg 
+                                          className="h-5 w-5 text-red-500 hover:text-red-600" 
+                                          fill="none" 
+                                          viewBox="0 0 24 24" 
+                                          stroke="currentColor"
+                                        >
+                                          <path 
+                                            strokeLinecap="round" 
+                                            strokeLinejoin="round" 
+                                            strokeWidth={2} 
+                                            d="M6 18L18 6M6 6l12 12" 
+                                          />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => toggleCardArchive(column.id, card.id)}
+                                      className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                                      title="Archive task"
+                                    >
                                       <svg 
                                         className="h-5 w-5 text-gray-500 hover:text-gray-600" 
                                         fill="none" 
@@ -898,8 +942,8 @@ const Management = () => {
                                           d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" 
                                         />
                                       </svg>
-                                    )}
-                                  </button>
+                                    </button>
+                                  )}
                                   <button
                                     onClick={() => toggleCardOptions(card.id)}
                                     className="p-1 hover:bg-gray-100 rounded-full transition-colors"
