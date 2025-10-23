@@ -775,55 +775,119 @@ const Management = () => {
     }
   };
 
-  // Add import function with API sync
+  // Add import function with enhanced API sync
   const importData = async (event) => {
     const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const data = JSON.parse(e.target.result);
-          
-          // Update local state with backward compatibility for icons
-          setProjects(data.projects || [{ id: 1, name: 'Default Project' }]);
-          
-          const processedColumns = (data.columns || []).map(column => ({
+    if (!file) return;
+
+    // Show loading state
+    setIsSaving(true);
+    
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const rawData = JSON.parse(e.target.result)?.data;
+        
+        // Process and validate imported data with backward compatibility for icons
+        const processedData = {
+          projects: rawData.projects || [{ id: 1, name: 'Default Project' }],
+          columns: (rawData.columns || []).map(column => ({
             ...column,
             cards: column.cards.map(card => ({
               ...card,
               icon: card.icon || 'none' // Default icon for imported cards without icon
             }))
-          }));
+          })),
+          expandedCards: rawData.expandedCards || {},
+          showArchived: rawData.showArchived || false,
+          showTop10: rawData.showTop10 !== undefined ? rawData.showTop10 : true,
+          selectedProjectId: rawData.selectedProjectId || null
+        };
+
+        console.log("Processed imported data:", processedData);
+        
+        // Update local state first
+        setProjects(processedData.projects);
+        setColumns(processedData.columns);
+        setExpandedCards(processedData.expandedCards);
+        setShowArchived(processedData.showArchived);
+        setShowTop10(processedData.showTop10);
+        setSelectedProjectId(processedData.selectedProjectId);
+        
+        // Immediately sync processed data to backend
+        try {
+          const recordId = getManagementContext();
+          await jsonApi.update(recordId, processedData);
+          setLastSaved(new Date().toLocaleTimeString() + ' (imported)');
           
-          setColumns(processedColumns);
-          setExpandedCards(data.expandedCards || {});
-          setShowArchived(data.showArchived || false);
-          setShowTop10(data.showTop10 !== undefined ? data.showTop10 : true);
-          setSelectedProjectId(data.selectedProjectId || null);
+          toast.success('Data imported and synced to backend successfully!', {
+            duration: 5000,
+            icon: '🚀',
+            style: {
+              background: '#f0fdf4',
+              color: '#166534',
+              border: '1px solid #bbf7d0',
+            },
+          });
           
-          // Save to API
+          // Also backup to localStorage
+          localStorage.setItem('managementBoardData', JSON.stringify(processedData));
+          
+        } catch (apiError) {
+          console.error('Error syncing imported data to API:', apiError);
+          
+          // Fallback to localStorage and retry
           try {
-            const recordId = getManagementContext();
-            await jsonApi.update(recordId, data);
-            setLastSaved(new Date().toLocaleTimeString());
-            toast.success('Data imported and synced successfully!');
-          } catch (apiError) {
-            console.error('Error syncing imported data to API:', apiError);
-            toast('Data imported locally. API sync failed - will retry on next save.', {
+            localStorage.setItem('managementBoardData', JSON.stringify(processedData));
+            setLastSaved(new Date().toLocaleTimeString() + ' (local)');
+            
+            toast('Data imported locally. Backend sync failed - retrying...', {
+              duration: 6000,
               icon: '⚠️',
               style: {
                 background: '#fef3c7',
                 color: '#92400e',
+                border: '1px solid #fde68a',
               },
             });
+            
+            // Retry after 2 seconds
+            setTimeout(async () => {
+              try {
+                const recordId = getManagementContext();
+                await jsonApi.update(recordId, processedData);
+                setLastSaved(new Date().toLocaleTimeString() + ' (synced)');
+                toast.success('Backend sync successful after retry!', {
+                  icon: '✅',
+                });
+              } catch (retryError) {
+                console.error('Retry sync failed:', retryError);
+                toast.error('Backend sync failed. Data saved locally only.');
+              }
+            }, 2000);
+            
+          } catch (localError) {
+            console.error('Error saving to localStorage:', localError);
+            toast.error('Failed to save imported data. Please try again.');
           }
-        } catch (error) {
-          console.error('Error importing data:', error);
-          toast.error('Invalid file format');
         }
-      };
-      reader.readAsText(file);
-    }
+        
+      } catch (parseError) {
+        console.error('Error parsing imported file:', parseError);
+        toast.error('Invalid JSON file format. Please check your file.', {
+          duration: 4000,
+        });
+      } finally {
+        setIsSaving(false);
+      }
+    };
+    
+    reader.onerror = () => {
+      setIsSaving(false);
+      toast.error('Error reading file. Please try again.');
+    };
+    
+    reader.readAsText(file);
     
     // Reset file input
     event.target.value = '';
