@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { CalendarIcon, ClockIcon } from '@heroicons/react/outline';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { jsonApi } from '../services';
+import toast, { Toaster } from 'react-hot-toast';
+import './Management.css';
 
 const getColorPriority = (color, defaultColors) => {
   const index = defaultColors.indexOf(color);
@@ -29,6 +32,11 @@ const sortCards = (cards, defaultColors) => {
     return compareDates(a.dueDate, b.dueDate);
   });
 };
+
+const getManagementContext = () => {
+  let currentTag = location.hash.replace('#', '');
+  return currentTag.length > 0 ? currentTag : "management-board";
+}
 
 // Add reorder helper function
 const reorderColumns = (list, startIndex, endIndex) => {
@@ -90,6 +98,7 @@ const Management = () => {
       cards: []
     };
     setColumns([...columns, newColumn]);
+    toast.success('New column added successfully!');
   };
 
   const addCard = (columnId) => {
@@ -108,6 +117,7 @@ const Management = () => {
       }
       return column;
     }));
+    toast.success('New card added successfully!');
   };
 
   const updateCardTitle = (columnId, cardId, newTitle) => {
@@ -300,6 +310,7 @@ const Management = () => {
   const addProject = (name) => {
     if (!name.trim()) return;
     setProjects([...projects, { id: Date.now(), name }]);
+    toast.success(`Project "${name}" created successfully!`);
   };
 
   const updateColumnProject = (columnId, projectId) => {
@@ -320,14 +331,17 @@ const Management = () => {
   const deleteColumn = (columnId) => {
     if (window.confirm('Are you sure you want to delete this column and all its cards?')) {
       setColumns(columns.filter(column => column.id !== columnId));
+      showSuccess('Column deleted successfully!');
     }
   };
 
   const toggleCardArchive = (columnId, cardId) => {
+    let isArchiving = false;
     setColumns(columns.map(column => {
       if (column.id === columnId) {
         const updatedCards = column.cards.map(card => {
           if (card.id === cardId) {
+            isArchiving = !card.archived;
             return { ...card, archived: !card.archived };
           }
           return card;
@@ -336,6 +350,21 @@ const Management = () => {
       }
       return column;
     }));
+    
+    // Show notification after state update
+    setTimeout(() => {
+      if (isArchiving) {
+        toast('Card archived successfully!', {
+          icon: '📁',
+          style: {
+            background: '#dbeafe',
+            color: '#1e40af',
+          },
+        });
+      } else {
+        toast.success('Card restored successfully!');
+      }
+    }, 100);
   };
 
   // Add rename project function
@@ -394,8 +423,8 @@ const Management = () => {
     );
   };
 
-  // Add save/load functions
-  const saveToLocalStorage = async () => {
+  // Add save/load functions using JsonApi
+  const saveToApi = async (isAutoSave = false) => {
     setIsSaving(true);
     const data = {
       projects,
@@ -407,82 +436,228 @@ const Management = () => {
     };
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
-      localStorage.setItem('managementBoardData', JSON.stringify(data));
-      setLastSaved(new Date().toLocaleTimeString());
+      // Use a unique record ID for this management board
+      const recordId = getManagementContext();
+      await jsonApi.update(recordId, data);
+      setLastSaved(new Date().toLocaleTimeString() + (isAutoSave ? ' (auto)' : ''));
+      
+      // Only show success toast on manual save, not auto-save
+      if (!isAutoSave) {
+        toast.success('Data saved successfully!');
+      }
+    } catch (error) {
+      console.error('Error saving to API:', error);
+      // Fallback to localStorage if API fails
+      try {
+        localStorage.setItem('managementBoardData', JSON.stringify(data));
+        setLastSaved(new Date().toLocaleTimeString() + ' (local)' + (isAutoSave ? ' (auto)' : ''));
+        if (!isAutoSave) {
+          toast('Saved locally. API connection failed.', {
+            icon: '⚠️',
+            style: {
+              background: '#fef3c7',
+              color: '#92400e',
+            },
+          });
+        }
+      } catch (localError) {
+        console.error('Error saving to localStorage:', localError);
+        toast.error('Failed to save data. Please try again.');
+      }
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Add load function
-  const loadFromLocalStorage = () => {
-    const saved = localStorage.getItem('managementBoardData');
-    if (saved) {
-      const data = JSON.parse(saved);
-      setProjects(data.projects);
-      setColumns(data.columns);
-      setExpandedCards(data.expandedCards);
-      setShowArchived(data.showArchived);
-      setShowTop10(data.showTop10);
-      setSelectedProjectId(data.selectedProjectId);
+  // Add load function using JsonApi
+  const loadFromApi = async () => {
+    try {
+      const recordId = getManagementContext();
+      const data = (await jsonApi.read(recordId))?.data;
+
+      console.log('Loaded data from API:', data);
+      
+      if (data && typeof data === 'object') {
+        setProjects(data.projects || [{ id: 1, name: 'Default Project' }]);
+        setColumns(data.columns || [{
+          id: 1,
+          title: 'To Do',
+          projectId: 1,
+          cards: [{
+            id: 1,
+            title: 'Task 1',
+            color: defaultColors[0],
+            dueDate: null,
+            notes: '',
+            archived: false,
+            progress: 0
+          }]
+        }]);
+        setExpandedCards(data.expandedCards || {});
+        setShowArchived(data.showArchived || false);
+        setShowTop10(data.showTop10 !== undefined ? data.showTop10 : true);
+        setSelectedProjectId(data.selectedProjectId || null);
+      }
+    } catch (error) {
+      console.error('Error loading from API:', error);
+      // Fallback to localStorage if API fails
+      try {
+        const saved = localStorage.getItem('managementBoardData');
+        if (saved) {
+          const data = JSON.parse(saved);
+          setProjects(data.projects || [{ id: 1, name: 'Default Project' }]);
+          setColumns(data.columns || [{
+            id: 1,
+            title: 'To Do',
+            projectId: 1,
+            cards: [{
+              id: 1,
+              title: 'Task 1',
+              color: defaultColors[0],
+              dueDate: null,
+              notes: '',
+              archived: false,
+              progress: 0
+            }]
+          }]);
+          setExpandedCards(data.expandedCards || {});
+          setShowArchived(data.showArchived || false);
+          setShowTop10(data.showTop10 !== undefined ? data.showTop10 : true);
+          setSelectedProjectId(data.selectedProjectId || null);
+        }
+      } catch (localError) {
+        console.error('Error loading from localStorage:', localError);
+      }
     }
   };
 
-  // Add export function
-  const exportData = () => {
-    const data = {
-      projects,
-      columns,
-      expandedCards,
-      showArchived,
-      showTop10,
-      selectedProjectId
-    };
-    
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `management-board-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  // Add export function with API integration
+  const exportData = async () => {
+    try {
+      // Try to get the latest data from API first
+      const recordId = getManagementContext();
+      const apiData = await jsonApi.read(recordId);
+      
+      const data = apiData || {
+        projects,
+        columns,
+        expandedCards,
+        showArchived,
+        showTop10,
+        selectedProjectId
+      };
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `management-board-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      // Fallback to current state if API fails
+      const data = {
+        projects,
+        columns,
+        expandedCards,
+        showArchived,
+        showTop10,
+        selectedProjectId
+      };
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `management-board-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
   };
 
-  // Add import function
-  const importData = (event) => {
+  // Add import function with API sync
+  const importData = async (event) => {
     const file = event.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
           const data = JSON.parse(e.target.result);
-          setProjects(data.projects);
-          setColumns(data.columns);
-          setExpandedCards(data.expandedCards);
-          setShowArchived(data.showArchived);
-          setShowTop10(data.showTop10);
-          setSelectedProjectId(data.selectedProjectId);
+          
+          // Update local state
+          setProjects(data.projects || [{ id: 1, name: 'Default Project' }]);
+          setColumns(data.columns || []);
+          setExpandedCards(data.expandedCards || {});
+          setShowArchived(data.showArchived || false);
+          setShowTop10(data.showTop10 !== undefined ? data.showTop10 : true);
+          setSelectedProjectId(data.selectedProjectId || null);
+          
+          // Save to API
+          try {
+            const recordId = getManagementContext();
+            await jsonApi.update(recordId, data);
+            setLastSaved(new Date().toLocaleTimeString());
+            toast.success('Data imported and synced successfully!');
+          } catch (apiError) {
+            console.error('Error syncing imported data to API:', apiError);
+            toast('Data imported locally. API sync failed - will retry on next save.', {
+              icon: '⚠️',
+              style: {
+                background: '#fef3c7',
+                color: '#92400e',
+              },
+            });
+          }
         } catch (error) {
-          alert('Invalid file format');
+          console.error('Error importing data:', error);
+          toast.error('Invalid file format');
         }
       };
       reader.readAsText(file);
     }
+    
+    // Reset file input
+    event.target.value = '';
   };
 
-  // Add useEffect for auto-save
+  // Add useEffect for auto-save and initial load
   useEffect(() => {
-    // Load initial data
-    loadFromLocalStorage();
+    // Load initial data from API
+    loadFromApi();
     
-    // Setup auto-save interval
+    // Setup auto-save interval (every 2 minutes)
     const interval = setInterval(() => {
-      saveToLocalStorage();
-    }, 60000); // Every minute
+      saveToApi(true); // true indicates auto-save
+    }, 120000);
     
     return () => clearInterval(interval);
   }, []);
+
+  // Add useEffect to auto-save when state changes (debounced)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (columns.length > 0) { // Only save if we have data
+        saveToApi(true); // true indicates auto-save
+      }
+    }, 5000); // Save 5 seconds after last change
+    
+    return () => clearTimeout(timeoutId);
+  }, [projects, columns, expandedCards, showArchived, showTop10, selectedProjectId]);
+
+  // Add sync function to manually refresh from API
+  const syncFromApi = async () => {
+    setIsSaving(true);
+    try {
+      await loadFromApi();
+      toast.success('Data synced successfully from server!');
+    } catch (error) {
+      console.error('Error syncing from API:', error);
+      toast.error('Failed to sync from server. Check your connection.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Add delete card permanently function
   const deleteCardPermanently = (columnId, cardId) => {
@@ -499,6 +674,7 @@ const Management = () => {
       }
       return column;
     }));
+    toast.success('Card deleted permanently!');
   };
 
   return (
@@ -567,7 +743,26 @@ const Management = () => {
               Export
             </button>
             <button
-              onClick={saveToLocalStorage}
+              onClick={syncFromApi}
+              disabled={isSaving}
+              className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 
+                       transition-colors flex items-center gap-1"
+              title="Sync from server"
+            >
+              {isSaving ? (
+                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              )}
+              Sync
+            </button>
+            <button
+              onClick={saveToApi}
               disabled={isSaving}
               className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 
                        transition-colors flex items-center gap-1 relative"
@@ -748,7 +943,7 @@ const Management = () => {
               <div 
                 ref={provided.innerRef}
                 {...provided.droppableProps}
-                className="flex gap-4 overflow-x-auto pb-4"
+                className="flex gap-4 overflow-x-auto pb-4 columns-container"
               >
                 {/* Draggable Columns */}
                 {getFilteredColumns().map((column, index) => (
@@ -1092,6 +1287,45 @@ const Management = () => {
           </Droppable>
         </DragDropContext>
       </div>
+      
+      {/* Toast Notifications */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#fff',
+            color: '#363636',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+            borderRadius: '8px',
+            padding: '16px',
+            fontSize: '14px',
+            maxWidth: '500px',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+            style: {
+              background: '#f0fdf4',
+              color: '#166534',
+              border: '1px solid #bbf7d0',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
+            style: {
+              background: '#fef2f2',
+              color: '#dc2626',
+              border: '1px solid #fecaca',
+            },
+          },
+        }}
+      />
     </div>
   );
 };

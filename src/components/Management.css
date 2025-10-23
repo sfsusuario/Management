@@ -1,0 +1,61 @@
+/* Custom styles for Management component */
+.highlight-card {
+  animation: highlight 2s ease-in-out;
+}
+
+@keyframes highlight {
+  0% {
+    background-color: #fff3cd;
+    transform: scale(1);
+  }
+  50% {
+    background-color: #ffeaa7;
+    transform: scale(1.02);
+  }
+  100% {
+    background-color: white;
+    transform: scale(1);
+  }
+}
+
+/* Toast animations */
+.toast-enter {
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+.toast-enter-active {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 300ms, transform 300ms;
+}
+
+.toast-exit {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.toast-exit-active {
+  opacity: 0;
+  transform: translateX(100%);
+  transition: opacity 300ms, transform 300ms;
+}
+
+/* Custom scrollbar for columns */
+.columns-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.columns-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.columns-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.columns-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
