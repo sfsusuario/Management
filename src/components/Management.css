@@ -59,3 +59,64 @@
 .columns-container::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
+
+/* Icon selector styles */
+.icon-selector-grid {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+.icon-selector-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.icon-selector-grid::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.icon-selector-grid::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.icon-selector-grid::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Icon button hover effects */
+.icon-button {
+  transition: all 0.2s ease-in-out;
+  position: relative;
+}
+
+.icon-button:hover {
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.icon-button.selected {
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* Quick icon selector tooltip */
+.icon-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1f2937;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 20;
+}
+
+.icon-button:hover .icon-tooltip {
+  opacity: 1;
+}

@@ -1,5 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { CalendarIcon, ClockIcon } from '@heroicons/react/outline';
+// React Icons - Selected icons for better performance
+import { 
+  MdWork, MdCode, MdBugReport, MdLightbulb, MdSettings, MdEmail, MdPhone,
+  MdDescription, MdSecurity, MdStorage, MdDesktopMac, MdSmartphone,
+  MdLanguage, MdShoppingCart, MdPayment, MdLocalShipping, MdFavorite, 
+  MdStar, MdFlag, MdGift, MdNotifications, MdWarning, MdCheckCircle,
+  MdCancel, MdHelp, MdInfo, MdSearch, MdVisibility, MdEdit, MdPhotoCamera,
+  MdVideocam, MdMusicNote, MdFolder, MdHome, MdMap, MdWbSunny,
+ MdExtension, MdCampaign, MdTerminal, MdWifi, MdViewInAr,
+  MdPalette, MdSend, MdThumbUp, MdPerson, MdGroup, MdCalendarToday,
+  MdAccessTime, MdSchool, MdArchive, MdVerified, MdScience
+} from 'react-icons/md';
+import { 
+  FaBriefcase, FaCode, FaBug, FaLightbulb, FaCog, FaEnvelope, FaPhone,
+  FaFileAlt, FaChartBar, FaUsers, FaShieldAlt, FaDatabase, FaDesktop,
+  FaMobile, FaGlobe, FaShoppingCart, FaCreditCard, FaTruck, FaHeart,
+  FaStar, FaFire, FaFlag, FaGift, FaBell, FaExclamationTriangle,
+  FaCheckCircle, FaTimesCircle, FaQuestionCircle, FaInfoCircle,
+  FaSearch, FaEye, FaPencilAlt, FaCamera, FaVideo, FaMusic,
+  FaFolder, FaHome, FaMapMarkerAlt, FaSun, FaBolt, FaPuzzlePiece,
+  FaBullhorn, FaTerminal, FaWifi, FaCube, FaPaperPlane, FaThumbsUp
+} from 'react-icons/fa';
+import { 
+  FiCalendar, FiClock, FiBookOpen, FiFilm, FiLink,
+  FiPrinter, FiTag, FiZoomIn
+} from 'react-icons/fi';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { jsonApi } from '../services';
 import toast, { Toaster } from 'react-hot-toast';
@@ -56,6 +81,140 @@ const Management = () => {
     '#FFD740', // amber - lowest priority
   ];
 
+  // Icon configuration with React Icons
+  const availableIcons = [
+    { name: 'none', label: 'No Icon', component: null },
+    // Work & Business
+    { name: 'briefcase', label: 'Business/Work', component: FaBriefcase },
+    { name: 'work', label: 'Work/Job', component: MdWork },
+    // Development & Tech
+    { name: 'code', label: 'Development', component: FaCode },
+    { name: 'code-md', label: 'Programming', component: MdCode },
+    { name: 'bug', label: 'Bug/Issue', component: FaBug },
+    { name: 'bug-md', label: 'Bug Report', component: MdBugReport },
+    { name: 'terminal', label: 'Terminal/CLI', component: FaTerminal },
+    { name: 'terminal-md', label: 'Command Line', component: MdTerminal },
+    { name: 'database', label: 'Database', component: FaDatabase },
+    { name: 'storage', label: 'Storage/Data', component: MdStorage },
+    { name: 'desktop', label: 'Desktop/System', component: FaDesktop },
+    { name: 'desktop-md', label: 'Computer', component: MdDesktopMac },
+    { name: 'mobile', label: 'Mobile/App', component: FaMobile },
+    { name: 'mobile-md', label: 'Smartphone', component: MdSmartphone },
+    { name: 'wifi', label: 'Network/WiFi', component: FaWifi },
+    { name: 'wifi-md', label: 'Connectivity', component: MdWifi },
+    { name: 'globe', label: 'Web/Internet', component: FaGlobe },
+    { name: 'web', label: 'Website/Online', component: MdLanguage },
+    // Creative & Ideas
+    { name: 'lightbulb', label: 'Idea/Creative', component: FaLightbulb },
+    { name: 'lightbulb-md', label: 'Innovation', component: MdLightbulb },
+    { name: 'palette', label: 'Design/UI', component: MdPalette },
+    { name: 'camera', label: 'Photography', component: FaCamera },
+    { name: 'camera-md', label: 'Photo/Media', component: MdPhotoCamera },
+    { name: 'video', label: 'Video/Recording', component: FaVideo },
+    { name: 'video-md', label: 'Videocam', component: MdVideocam },
+    { name: 'music', label: 'Audio/Music', component: FaMusic },
+    { name: 'music-md', label: 'Music Note', component: MdMusicNote },
+    // Communication
+    { name: 'email', label: 'Email', component: FaEnvelope },
+    { name: 'email-md', label: 'Mail', component: MdEmail },
+    { name: 'phone', label: 'Phone/Call', component: FaPhone },
+    { name: 'phone-md', label: 'Telephone', component: MdPhone },
+    { name: 'users', label: 'Team/People', component: FaUsers },
+    { name: 'group', label: 'Group/Team', component: MdGroup },
+    { name: 'person', label: 'Person/User', component: MdPerson },
+    // Documents & Files
+    { name: 'file', label: 'Document/File', component: FaFileAlt },
+    { name: 'document', label: 'Documentation', component: MdDescription },
+    { name: 'folder', label: 'Folder/Files', component: FaFolder },
+    { name: 'folder-md', label: 'Organization', component: MdFolder },
+    { name: 'book', label: 'Book/Reading', component: FiBookOpen },
+    { name: 'education', label: 'Education/Learning', component: MdSchool },
+    { name: 'printer', label: 'Print/Output', component: FiPrinter },
+    // Analytics & Reports
+    { name: 'chart', label: 'Analytics/Chart', component: FaChartBar },
+    { name: 'search', label: 'Search/Find', component: FaSearch },
+    { name: 'search-md', label: 'Investigation', component: MdSearch },
+    { name: 'eye', label: 'View/Monitor', component: FaEye },
+    { name: 'visibility', label: 'Visibility/Review', component: MdVisibility },
+    // Security & Settings
+    { name: 'shield', label: 'Security/Protection', component: FaShieldAlt },
+    { name: 'security', label: 'Security/Safe', component: MdSecurity },
+    { name: 'settings', label: 'Settings/Config', component: FaCog },
+    { name: 'settings-md', label: 'Configuration', component: MdSettings },
+    { name: 'verified', label: 'Verified/Approved', component: MdVerified },
+    // Commerce & Finance
+    { name: 'shopping', label: 'Shopping/Store', component: FaShoppingCart },
+    { name: 'shopping-md', label: 'E-commerce', component: MdShoppingCart },
+    { name: 'payment', label: 'Payment/Finance', component: FaCreditCard },
+    { name: 'payment-md', label: 'Credit Card', component: MdPayment },
+    { name: 'truck', label: 'Delivery/Shipping', component: FaTruck },
+    { name: 'shipping', label: 'Logistics/Transport', component: MdLocalShipping },
+    // Status & Emotions
+    { name: 'star', label: 'Star/Favorite', component: FaStar },
+    { name: 'star-md', label: 'Important/Rating', component: MdStar },
+    { name: 'heart', label: 'Love/Health', component: FaHeart },
+    { name: 'heart-md', label: 'Favorite/Like', component: MdFavorite },
+    { name: 'fire', label: 'Hot/Urgent', component: FaFire },
+    { name: 'bolt', label: 'Fast/Power', component: FaBolt },
+    { name: 'sun', label: 'Sun/Positive', component: FaSun },
+    { name: 'sun-md', label: 'Sunny/Bright', component: MdWbSunny },
+    // Notifications & Alerts
+    { name: 'bell', label: 'Notification', component: FaBell },
+    { name: 'bell-md', label: 'Alert/Reminder', component: MdNotifications },
+    { name: 'warning', label: 'Warning/Caution', component: FaExclamationTriangle },
+    { name: 'warning-md', label: 'Alert/Attention', component: MdWarning },
+    { name: 'info', label: 'Information/Note', component: FaInfoCircle },
+    { name: 'info-md', label: 'Info/Details', component: MdInfo },
+    { name: 'question', label: 'Question/Help', component: FaQuestionCircle },
+    { name: 'help', label: 'Help/Support', component: MdHelp },
+    // Status Indicators
+    { name: 'check', label: 'Complete/Success', component: FaCheckCircle },
+    { name: 'check-md', label: 'Done/Finished', component: MdCheckCircle },
+    { name: 'cancel', label: 'Cancel/Failed', component: FaTimesCircle },
+    { name: 'cancel-md', label: 'Cancelled/Stop', component: MdCancel },
+    { name: 'thumbs-up', label: 'Approve/Like', component: FaThumbsUp },
+    { name: 'thumbs-up-md', label: 'Good/Positive', component: MdThumbUp },
+    // Goals & Achievements
+    { name: 'flag', label: 'Goal/Milestone', component: FaFlag },
+    { name: 'flag-md', label: 'Target/Flag', component: MdFlag },
+    { name: 'gift', label: 'Reward/Bonus', component: FaGift },
+    // Tools & Actions
+    { name: 'edit', label: 'Edit/Modify', component: FaPencilAlt },
+    { name: 'edit-md', label: 'Write/Update', component: MdEdit },
+    { name: 'send', label: 'Send/Deploy', component: FaPaperPlane },
+    { name: 'send-md', label: 'Deliver/Ship', component: MdSend },
+    { name: 'puzzle', label: 'Integration/Puzzle', component: FaPuzzlePiece },
+    { name: 'extension', label: 'Extension/Plugin', component: MdExtension },
+    { name: 'megaphone', label: 'Marketing/Announce', component: FaBullhorn },
+    { name: 'campaign', label: 'Campaign/Promotion', component: MdCampaign },
+    // Location & Navigation
+    { name: 'home', label: 'Home/Personal', component: FaHome },
+    { name: 'home-md', label: 'House/Main', component: MdHome },
+    { name: 'map', label: 'Location/Travel', component: FaMapMarkerAlt },
+    { name: 'map-md', label: 'Navigation/Place', component: MdMap },
+    // Time & Calendar
+    { name: 'calendar', label: 'Calendar/Date', component: FiCalendar },
+    { name: 'calendar-md', label: 'Schedule/Time', component: MdCalendarToday },
+    { name: 'clock', label: 'Time/Duration', component: FiClock },
+    { name: 'clock-md', label: 'Access Time', component: MdAccessTime },
+    // Science & Research
+    { name: 'science', label: 'Science/Research', component: MdScience },
+    { name: 'archive', label: 'Archive/Storage', component: MdArchive },
+    { name: 'cube', label: '3D/Modeling', component: FaCube },
+    { name: 'cube-md', label: 'AR/VR/3D', component: MdViewInAr },
+    // Media & Entertainment
+    { name: 'film', label: 'Movie/Cinema', component: FiFilm },
+    { name: 'link', label: 'Link/Connection', component: FiLink },
+    { name: 'tag', label: 'Tag/Label', component: FiTag },
+    { name: 'zoom', label: 'Zoom/Magnify', component: FiZoomIn }
+  ];
+
+  // Helper function to get icon component by name
+  const getIconComponent = (iconName) => {
+    const iconConfig = availableIcons.find(icon => icon.name === iconName);
+    return iconConfig?.component || null;
+  };
+
   // Add new state for projects
   const [projects, setProjects] = useState([
     { id: 1, name: 'Default Project' }
@@ -74,7 +233,8 @@ const Management = () => {
         dueDate: null,
         notes: '',
         archived: false,
-        progress: 0 // Add progress property
+        progress: 0, // Add progress property
+        icon: 'briefcase' // Add icon property
       }] 
     }
   ]);
@@ -111,7 +271,8 @@ const Management = () => {
           dueDate: null,
           notes: '', // Add notes field
           archived: false,
-          progress: 0 // Add progress property
+          progress: 0, // Add progress property
+          icon: 'none' // Add icon property
         };
         return { ...column, cards: [...column.cards, newCard] };
       }
@@ -409,6 +570,22 @@ const Management = () => {
     }));
   };
 
+  // Add function to update card icon
+  const updateCardIcon = (columnId, cardId, iconName) => {
+    setColumns(columns.map(column => {
+      if (column.id === columnId) {
+        const updatedCards = column.cards.map(card => {
+          if (card.id === cardId) {
+            return { ...card, icon: iconName };
+          }
+          return card;
+        });
+        return { ...column, cards: updatedCards };
+      }
+      return column;
+    }));
+  };
+
   // Add progress bar component
   const ProgressBar = ({ progress }) => {
     if (progress <= 0) return null;
@@ -479,7 +656,9 @@ const Management = () => {
       
       if (data && typeof data === 'object') {
         setProjects(data.projects || [{ id: 1, name: 'Default Project' }]);
-        setColumns(data.columns || [{
+        
+        // Ensure all cards have icon property for backward compatibility
+        const processedColumns = (data.columns || [{
           id: 1,
           title: 'To Do',
           projectId: 1,
@@ -490,9 +669,18 @@ const Management = () => {
             dueDate: null,
             notes: '',
             archived: false,
-            progress: 0
+            progress: 0,
+            icon: 'briefcase'
           }]
-        }]);
+        }]).map(column => ({
+          ...column,
+          cards: column.cards.map(card => ({
+            ...card,
+            icon: card.icon || 'none' // Default icon for existing cards without icon
+          }))
+        }));
+        
+        setColumns(processedColumns);
         setExpandedCards(data.expandedCards || {});
         setShowArchived(data.showArchived || false);
         setShowTop10(data.showTop10 !== undefined ? data.showTop10 : true);
@@ -506,7 +694,9 @@ const Management = () => {
         if (saved) {
           const data = JSON.parse(saved);
           setProjects(data.projects || [{ id: 1, name: 'Default Project' }]);
-          setColumns(data.columns || [{
+          
+          // Ensure all cards have icon property for backward compatibility
+          const processedColumns = (data.columns || [{
             id: 1,
             title: 'To Do',
             projectId: 1,
@@ -517,9 +707,18 @@ const Management = () => {
               dueDate: null,
               notes: '',
               archived: false,
-              progress: 0
+              progress: 0,
+              icon: 'briefcase'
             }]
-          }]);
+          }]).map(column => ({
+            ...column,
+            cards: column.cards.map(card => ({
+              ...card,
+              icon: card.icon || 'none' // Default icon for existing cards without icon
+            }))
+          }));
+          
+          setColumns(processedColumns);
           setExpandedCards(data.expandedCards || {});
           setShowArchived(data.showArchived || false);
           setShowTop10(data.showTop10 !== undefined ? data.showTop10 : true);
@@ -585,9 +784,18 @@ const Management = () => {
         try {
           const data = JSON.parse(e.target.result);
           
-          // Update local state
+          // Update local state with backward compatibility for icons
           setProjects(data.projects || [{ id: 1, name: 'Default Project' }]);
-          setColumns(data.columns || []);
+          
+          const processedColumns = (data.columns || []).map(column => ({
+            ...column,
+            cards: column.cards.map(card => ({
+              ...card,
+              icon: card.icon || 'none' // Default icon for imported cards without icon
+            }))
+          }));
+          
+          setColumns(processedColumns);
           setExpandedCards(data.expandedCards || {});
           setShowArchived(data.showArchived || false);
           setShowTop10(data.showTop10 !== undefined ? data.showTop10 : true);
@@ -857,7 +1065,11 @@ const Management = () => {
                             <div className="text-xs text-gray-500 mt-1">
                               From: {card.columnTitle}
                             </div>
-                            <div className="font-medium mt-1">
+                            <div className="font-medium mt-1 flex items-center gap-2">
+                              {card.icon && card.icon !== 'none' && (() => {
+                                const IconComponent = getIconComponent(card.icon);
+                                return IconComponent ? <IconComponent className="h-4 w-4 text-gray-600" /> : null;
+                              })()}
                               {card.title}
                             </div>
                           </div>
@@ -1077,11 +1289,17 @@ const Management = () => {
                               <div className="h-2" style={{ backgroundColor: card.color }} />
                               <div className="p-3">
                                 <div className="flex justify-between items-center">
-                                  <input
-                                    value={card.title}
-                                    onChange={(e) => updateCardTitle(column.id, card.id, e.target.value)}
-                                    className="w-full border-none focus:ring-2 focus:ring-blue-500 rounded p-1"
-                                  />
+                                  <div className="flex items-center gap-2 flex-1">
+                                    {card.icon && card.icon !== 'none' && (() => {
+                                      const IconComponent = getIconComponent(card.icon);
+                                      return IconComponent ? <IconComponent className="h-5 w-5 text-gray-600 flex-shrink-0" /> : null;
+                                    })()}
+                                    <input
+                                      value={card.title}
+                                      onChange={(e) => updateCardTitle(column.id, card.id, e.target.value)}
+                                      className="w-full border-none focus:ring-2 focus:ring-blue-500 rounded p-1"
+                                    />
+                                  </div>
                                   <div className="flex items-center gap-2">
                                     {card.archived ? (
                                       <div className="flex gap-1">
@@ -1200,16 +1418,82 @@ const Management = () => {
                                       />
                                     </div>
 
+                                    {/* Icon selector */}
+                                    <div className="space-y-2">
+                                      <label className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2M7 4h10M7 4L5.5 9.5M17 4l1.5 5.5M9 15l3-8 3 8M8 17l8-8" />
+                                        </svg>
+                                        Task Icon
+                                      </label>
+                                      
+                                      {/* Quick access icons */}
+                                      <div className="flex gap-1 pb-2 border-b border-gray-200">
+                                        {['none', 'briefcase', 'code', 'bug', 'lightbulb', 'star', 'fire', 'check'].map(iconName => {
+                                          const iconConfig = availableIcons.find(icon => icon.name === iconName);
+                                          return (
+                                            <button
+                                              key={iconName}
+                                              onClick={() => updateCardIcon(column.id, card.id, iconName)}
+                                              className={`w-7 h-7 flex items-center justify-center rounded icon-button relative
+                                                ${card.icon === iconName 
+                                                  ? 'bg-blue-500 text-white shadow-md scale-110 selected' 
+                                                  : 'bg-white hover:bg-blue-50 hover:scale-105 text-gray-600 border border-gray-200'
+                                                }`}
+                                              title={iconConfig?.label}
+                                            >
+                                              {iconName === 'none' ? (
+                                                <span className="text-xs font-bold">✕</span>
+                                              ) : iconConfig?.component ? (
+                                                <iconConfig.component className="h-4 w-4" />
+                                              ) : null}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                      
+                                      <div className="grid grid-cols-8 gap-1 max-h-32 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50 icon-selector-grid">
+                                        {availableIcons.map(icon => (
+                                          <button
+                                            key={icon.name}
+                                            onClick={() => updateCardIcon(column.id, card.id, icon.name)}
+                                            className={`w-6 h-6 flex items-center justify-center rounded icon-button relative
+                                              ${card.icon === icon.name 
+                                                ? 'bg-blue-500 text-white shadow-md scale-110 selected' 
+                                                : 'bg-white hover:bg-blue-50 hover:scale-105 text-gray-600'
+                                              }`}
+                                          >
+                                            {icon.name === 'none' ? (
+                                              <span className="text-xs font-bold">✕</span>
+                                            ) : icon.component ? (
+                                              <icon.component className="h-4 w-4" />
+                                            ) : null}
+                                            <div className="icon-tooltip">{icon.label}</div>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+
                                     {/* Color picker */}
-                                    <div className="flex gap-1">
-                                      {defaultColors.map(color => (
-                                        <button
-                                          key={color}
-                                          onClick={() => updateCardColor(column.id, card.id, color)}
-                                          className="w-6 h-6 rounded-full border-2 border-white hover:scale-110 transition-transform"
-                                          style={{ backgroundColor: color }}
-                                        />
-                                      ))}
+                                    <div className="space-y-2">
+                                      <label className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z" />
+                                        </svg>
+                                        Priority Color
+                                      </label>
+                                      <div className="flex gap-1">
+                                        {defaultColors.map(color => (
+                                          <button
+                                            key={color}
+                                            onClick={() => updateCardColor(column.id, card.id, color)}
+                                            className={`w-6 h-6 rounded-full border-2 hover:scale-110 transition-transform
+                                              ${card.color === color ? 'border-gray-600 scale-110' : 'border-white'}`}
+                                            style={{ backgroundColor: color }}
+                                            title="Change priority color"
+                                          />
+                                        ))}
+                                      </div>
                                     </div>
 
                                     {/* Add notes textarea */}
