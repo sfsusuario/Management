@@ -251,6 +251,8 @@ const Management = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
 
+  const saveRef = React.useRef(null);
+
   const addColumn = () => {
     const newColumn = {
       id: Date.now(),
@@ -615,6 +617,7 @@ const Management = () => {
     try {
       // Use a unique record ID for this management board
       const recordId = getManagementContext();
+      console.log("Saving data to API:", data);
       await jsonApi.update(recordId, data);
       setLastSaved(new Date().toLocaleTimeString() + (isAutoSave ? ' (auto)' : ''));
       
@@ -900,23 +903,12 @@ const Management = () => {
     
     // Setup auto-save interval (every 2 minutes)
     const interval = setInterval(() => {
-      saveToApi(true); // true indicates auto-save
+      saveRef.current.click();
     }, 120000);
     
     return () => clearInterval(interval);
   }, []);
-
-  // Add useEffect to auto-save when state changes (debounced)
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (columns.length > 0) { // Only save if we have data
-        saveToApi(true); // true indicates auto-save
-      }
-    }, 5000); // Save 5 seconds after last change
-    
-    return () => clearTimeout(timeoutId);
-  }, [projects, columns, expandedCards, showArchived, showTop10, selectedProjectId]);
-
+  
   // Add sync function to manually refresh from API
   const syncFromApi = async () => {
     setIsSaving(true);
@@ -1034,6 +1026,7 @@ const Management = () => {
               Sync
             </button>
             <button
+              ref={saveRef}
               onClick={saveToApi}
               disabled={isSaving}
               className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 
