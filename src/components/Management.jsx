@@ -229,23 +229,7 @@ const Management = () => {
   ]);
 
   // Add project to column model
-  const [columns, setColumns] = useState([
-    { 
-      id: 1, 
-      title: 'To Do',
-      projectId: 1,
-      cards: [{ 
-        id: 1, 
-        title: 'Task 1',
-        color: defaultColors[0],
-        dueDate: null,
-        notes: '',
-        archived: false,
-        progress: 0, // Add progress property
-        icon: 'briefcase' // Add icon property
-      }] 
-    }
-  ]);
+  const [columns, setColumns] = useState([]);
 
   const [expandedCards, setExpandedCards] = useState({});
   const [showArchived, setShowArchived] = useState(false);
@@ -261,6 +245,7 @@ const Management = () => {
   // Add new states
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   const saveRef = React.useRef(null);
 
@@ -662,7 +647,11 @@ const Management = () => {
   };
 
   // Add load function using JsonApi
-  const loadFromApi = async () => {
+  const loadFromApi = async (isInitial = false) => {
+    if (isInitial) {
+      setIsInitialLoading(true);
+    }
+    
     try {
       const recordId = getManagementContext();
       const data = (await jsonApi.read(recordId))?.data;
@@ -708,24 +697,10 @@ const Management = () => {
         const saved = localStorage.getItem('managementBoardData');
         if (saved) {
           const data = JSON.parse(saved);
-          setProjects(data.projects || [{ id: 1, name: 'Default Project' }]);
+          setProjects(data.projects || []);
           
           // Ensure all cards have icon property for backward compatibility
-          const processedColumns = (data.columns || [{
-            id: 1,
-            title: 'To Do',
-            projectId: 1,
-            cards: [{
-              id: 1,
-              title: 'Task 1',
-              color: defaultColors[0],
-              dueDate: null,
-              notes: '',
-              archived: false,
-              progress: 0,
-              icon: 'briefcase'
-            }]
-          }]).map(column => ({
+          const processedColumns = (data.columns || []).map(column => ({
             ...column,
             cards: column.cards.map(card => ({
               ...card,
@@ -741,6 +716,10 @@ const Management = () => {
         }
       } catch (localError) {
         console.error('Error loading from localStorage:', localError);
+      }
+    } finally {
+      if (isInitial) {
+        setIsInitialLoading(false);
       }
     }
   };
@@ -911,7 +890,7 @@ const Management = () => {
   // Add useEffect for auto-save and initial load
   useEffect(() => {
     // Load initial data from API
-    loadFromApi();
+    loadFromApi(true);
     
     // Setup auto-save interval (every 2 minutes)
     const interval = setInterval(() => {
@@ -972,6 +951,17 @@ const Management = () => {
 
   return (
     <div className="p-6">
+      {/* Loading screen for initial load */}
+      {isInitialLoading && (
+        <div className="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+            <h2 className="text-xl font-semibold text-gray-700 mb-2">Loading Management Board</h2>
+            <p className="text-gray-500">Fetching your data from the server...</p>
+          </div>
+        </div>
+      )}
+
       {/* Read-only mode banner */}
       {isReadOnly && (
         <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
