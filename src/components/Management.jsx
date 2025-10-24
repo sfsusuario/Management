@@ -60,7 +60,15 @@ const sortCards = (cards, defaultColors) => {
 
 const getManagementContext = () => {
   let currentTag = location.hash.replace('#', '');
+  // Split by & to handle readonly parameter
+  if (currentTag.includes('&')) {
+    currentTag = currentTag.split('&')[0];
+  }
   return currentTag.length > 0 ? currentTag : "management-board";
+}
+
+const isReadOnlyMode = () => {
+  return location.hash.includes('&readonly');
 }
 
 // Add reorder helper function
@@ -243,6 +251,9 @@ const Management = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [showTop10, setShowTop10] = useState(true);
   const [expandedTopCards, setExpandedTopCards] = useState({});
+
+  // Add readonly state
+  const [isReadOnly, setIsReadOnly] = useState(false);
 
   // Add new state for project filtering
   const [selectedProjectId, setSelectedProjectId] = useState(null);
@@ -545,7 +556,8 @@ const Management = () => {
   };
 
   const onDragEnd = (result) => {
-    if (!result.destination) return;
+    // Prevent any drag operations in read-only mode
+    if (isReadOnly || !result.destination) return;
     
     const items = reorderColumns(
       columns,
@@ -908,6 +920,23 @@ const Management = () => {
     
     return () => clearInterval(interval);
   }, []);
+
+  // Add useEffect for readonly mode detection
+  useEffect(() => {
+    const checkReadOnlyMode = () => {
+      setIsReadOnly(isReadOnlyMode());
+    };
+    
+    // Check on mount
+    checkReadOnlyMode();
+    
+    // Listen for hash changes
+    window.addEventListener('hashchange', checkReadOnlyMode);
+    
+    return () => {
+      window.removeEventListener('hashchange', checkReadOnlyMode);
+    };
+  }, []);
   
   // Add sync function to manually refresh from API
   const syncFromApi = async () => {
@@ -943,6 +972,17 @@ const Management = () => {
 
   return (
     <div className="p-6">
+      {/* Read-only mode banner */}
+      {isReadOnly && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <span className="text-amber-600">👁️</span>
+            <span className="text-amber-800 font-medium">Read-Only Mode</span>
+            <span className="text-amber-600">- This board is in view-only mode</span>
+          </div>
+        </div>
+      )}
+
       {/* Header controls */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
@@ -952,19 +992,22 @@ const Management = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSelectedProjectId(null)}
+              disabled={isReadOnly}
               className={`px-3 py-1 text-sm rounded transition-colors ${
                 !selectedProjectId 
                   ? 'bg-blue-500 text-white' 
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              } ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               All Projects
             </button>
             <select
               value={selectedProjectId || ''}
               onChange={(e) => setSelectedProjectId(Number(e.target.value) || null)}
-              className="text-sm bg-white border border-gray-200 rounded px-2 py-1 
-                       hover:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              disabled={isReadOnly}
+              className={`text-sm bg-white border border-gray-200 rounded px-2 py-1 
+                       hover:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500
+                       ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <option value="">Filter by Project</option>
               {projects.map(project => (
@@ -977,110 +1020,111 @@ const Management = () => {
         </div>
 
         {/* Add new control section */}
-        <div className="flex items-center gap-4">
-          <div className="flex gap-2">
-            <input
-              type="file"
-              accept=".json"
-              onChange={importData}
-              className="hidden"
-              id="import-file"
-            />
-            <label
-              htmlFor="import-file"
-              className="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600 
-                       transition-colors cursor-pointer flex items-center gap-1"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
-              Import
-            </label>
-            <button
-              onClick={exportData}
-              className="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600 
-                       transition-colors flex items-center gap-1"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Export
-            </button>
-            <button
-              onClick={syncFromApi}
-              disabled={isSaving}
-              className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 
-                       transition-colors flex items-center gap-1"
-              title="Sync from server"
-            >
-              {isSaving ? (
-                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-              ) : (
+        {!isReadOnly && (
+          <div className="flex items-center gap-4">
+            <div className="flex gap-2">
+              <input
+                type="file"
+                accept=".json"
+                onChange={importData}
+                className="hidden"
+                id="import-file"
+              />
+              <label
+                htmlFor="import-file"
+                className="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600 
+                         transition-colors cursor-pointer flex items-center gap-1"
+              >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                 </svg>
-              )}
-              Sync
-            </button>
-            <button
-              ref={saveRef}
-              onClick={saveToApi}
-              disabled={isSaving}
-              className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 
-                       transition-colors flex items-center gap-1 relative"
-            >
-              {isSaving ? (
-                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-              ) : (
+                Import
+              </label>
+              <button
+                onClick={exportData}
+                className="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600 
+                         transition-colors flex items-center gap-1"
+              >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-              )}
-              Save
-              {lastSaved && (
-                <span className="text-xs opacity-75 ml-2">
-                  Last: {lastSaved}
-                </span>
-              )}
-            </button>
+                Export
+              </button>
+              <button
+                onClick={syncFromApi}
+                disabled={isSaving}
+                className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 
+                         transition-colors flex items-center gap-1"
+                title="Sync from server"
+              >
+                {isSaving ? (
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : (
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                )}
+                Sync
+              </button>
+              <button
+                ref={saveRef}
+                onClick={saveToApi}
+                disabled={isSaving}
+                className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 
+                         transition-colors flex items-center gap-1 relative"
+              >
+                {isSaving ? (
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : (
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  </svg>
+                )}
+                Save
+                {lastSaved && (
+                  <span className="text-xs opacity-75 ml-2">
+                    Last: {lastSaved}
+                  </span>
+                )}
+              </button>
+            </div>
+            {/* ...existing controls... */}
+            <div className="flex gap-2">
+              <button
+                onClick={expandAll}
+                disabled={isReadOnly}
+                className={`px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 
+                         transition-colors ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                Expand All
+              </button>
+              <button
+                onClick={collapseAll}
+                disabled={isReadOnly}
+                className={`px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600 
+                         transition-colors ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                Collapse All
+              </button>
+            </div>
           </div>
-          {/* ...existing controls... */}
-          <div className="flex gap-2">
-            <button
-              onClick={expandAll}
-              className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 
-                       transition-colors flex items-center gap-1"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-              Expand All
-            </button>
-            <button
-              onClick={collapseAll}
-              className="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600 
-                       transition-colors flex items-center gap-1"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-              </svg>
-              Collapse All
-            </button>
-          </div>
+        )}
 
-          {/* Existing Toggles */}
+        {/* Existing Toggles */}
+        <div className="flex items-center gap-4">
           <label className="flex items-center space-x-2">
             <input 
               type="checkbox" 
               checked={showArchived} 
               onChange={(e) => setShowArchived(e.target.checked)}
-              className="rounded text-blue-500"
+              disabled={isReadOnly}
+              className={`rounded text-blue-500 ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
             <span className="text-sm text-gray-600">Show archived</span>
           </label>
@@ -1089,7 +1133,8 @@ const Management = () => {
               type="checkbox" 
               checked={showTop10} 
               onChange={(e) => setShowTop10(e.target.checked)}
-              className="rounded text-blue-500"
+              disabled={isReadOnly}
+              className={`rounded text-blue-500 ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
             <span className="text-sm text-gray-600">Show Top 10</span>
           </label>
@@ -1354,71 +1399,76 @@ const Management = () => {
                                     <input
                                       value={card.title}
                                       onChange={(e) => updateCardTitle(column.id, card.id, e.target.value)}
-                                      className="w-full border-none focus:ring-2 focus:ring-blue-500 rounded p-1"
+                                      disabled={isReadOnly}
+                                      className={`w-full border-none focus:ring-2 focus:ring-blue-500 rounded p-1 ${isReadOnly ? 'bg-gray-50 cursor-not-allowed' : ''}`}
                                     />
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    {card.archived ? (
-                                      <div className="flex gap-1">
-                                        <button
-                                          onClick={() => toggleCardArchive(column.id, card.id)}
-                                          className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                                          title="Restore task"
-                                        >
-                                          <svg 
-                                            className="h-5 w-5 text-green-500 hover:text-green-600" 
-                                            fill="none" 
-                                            viewBox="0 0 24 24" 
-                                            stroke="currentColor"
+                                    {!isReadOnly && (
+                                      <>
+                                        {card.archived ? (
+                                          <div className="flex gap-1">
+                                            <button
+                                              onClick={() => toggleCardArchive(column.id, card.id)}
+                                              className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                                              title="Restore task"
+                                            >
+                                              <svg 
+                                                className="h-5 w-5 text-green-500 hover:text-green-600" 
+                                                fill="none" 
+                                                viewBox="0 0 24 24" 
+                                                stroke="currentColor"
+                                              >
+                                                <path 
+                                                  strokeLinecap="round" 
+                                                  strokeLinejoin="round" 
+                                                  strokeWidth={2} 
+                                                  d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
+                                                />
+                                              </svg>
+                                            </button>
+                                            <button
+                                              onClick={() => deleteCardPermanently(column.id, card.id)}
+                                              className="p-1 hover:bg-red-100 rounded-full transition-colors"
+                                              title="Delete permanently"
+                                            >
+                                              <svg 
+                                                className="h-5 w-5 text-red-500 hover:text-red-600" 
+                                                fill="none" 
+                                                viewBox="0 0 24 24" 
+                                                stroke="currentColor"
+                                              >
+                                                <path 
+                                                  strokeLinecap="round" 
+                                                  strokeLinejoin="round" 
+                                                  strokeWidth={2} 
+                                                  d="M6 18L18 6M6 6l12 12" 
+                                                />
+                                              </svg>
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <button
+                                            onClick={() => toggleCardArchive(column.id, card.id)}
+                                            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                                            title="Archive task"
                                           >
-                                            <path 
-                                              strokeLinecap="round" 
-                                              strokeLinejoin="round" 
-                                              strokeWidth={2} 
-                                              d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
-                                            />
-                                          </svg>
-                                        </button>
-                                        <button
-                                          onClick={() => deleteCardPermanently(column.id, card.id)}
-                                          className="p-1 hover:bg-red-100 rounded-full transition-colors"
-                                          title="Delete permanently"
-                                        >
-                                          <svg 
-                                            className="h-5 w-5 text-red-500 hover:text-red-600" 
-                                            fill="none" 
-                                            viewBox="0 0 24 24" 
-                                            stroke="currentColor"
-                                          >
-                                            <path 
-                                              strokeLinecap="round" 
-                                              strokeLinejoin="round" 
-                                              strokeWidth={2} 
-                                              d="M6 18L18 6M6 6l12 12" 
-                                            />
-                                          </svg>
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <button
-                                        onClick={() => toggleCardArchive(column.id, card.id)}
-                                        className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                                        title="Archive task"
-                                      >
-                                        <svg 
-                                          className="h-5 w-5 text-gray-500 hover:text-gray-600" 
-                                          fill="none" 
-                                          viewBox="0 0 24 24" 
-                                          stroke="currentColor"
-                                        >
-                                          <path 
-                                            strokeLinecap="round" 
-                                            strokeLinejoin="round" 
-                                            strokeWidth={2} 
-                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" 
-                                          />
-                                        </svg>
-                                      </button>
+                                            <svg 
+                                              className="h-5 w-5 text-gray-500 hover:text-gray-600" 
+                                              fill="none" 
+                                              viewBox="0 0 24 24" 
+                                              stroke="currentColor"
+                                            >
+                                              <path 
+                                                strokeLinecap="round" 
+                                                strokeLinejoin="round" 
+                                                strokeWidth={2} 
+                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" 
+                                              />
+                                            </svg>
+                                          </button>
+                                        )}
+                                      </>
                                     )}
                                     <button
                                       onClick={() => toggleCardOptions(card.id)}
@@ -1467,6 +1517,7 @@ const Management = () => {
                                       </svg>
                                       <input
                                         type="datetime-local"
+                                        disabled={isReadOnly}
                                         value={card.dueDate || ''}
                                         onChange={(e) => updateCardDueDate(column.id, card.id, e.target.value)}
                                         className="text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1 
@@ -1491,12 +1542,13 @@ const Management = () => {
                                           return (
                                             <button
                                               key={iconName}
-                                              onClick={() => updateCardIcon(column.id, card.id, iconName)}
+                                              onClick={() => !isReadOnly && updateCardIcon(column.id, card.id, iconName)}
+                                              disabled={isReadOnly}
                                               className={`w-7 h-7 flex items-center justify-center rounded icon-button relative
                                                 ${card.icon === iconName 
                                                   ? 'bg-blue-500 text-white shadow-md scale-110 selected' 
                                                   : 'bg-white hover:bg-blue-50 hover:scale-105 text-gray-600 border border-gray-200'
-                                                }`}
+                                                } ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
                                               title={iconConfig?.label}
                                             >
                                               {iconName === 'none' ? (
@@ -1513,12 +1565,13 @@ const Management = () => {
                                         {availableIcons.map(icon => (
                                           <button
                                             key={icon.name}
-                                            onClick={() => updateCardIcon(column.id, card.id, icon.name)}
+                                            onClick={() => !isReadOnly && updateCardIcon(column.id, card.id, icon.name)}
+                                            disabled={isReadOnly}
                                             className={`w-6 h-6 flex items-center justify-center rounded icon-button relative
                                               ${card.icon === icon.name 
                                                 ? 'bg-blue-500 text-white shadow-md scale-110 selected' 
                                                 : 'bg-white hover:bg-blue-50 hover:scale-105 text-gray-600'
-                                              }`}
+                                              } ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
                                           >
                                             {icon.name === 'none' ? (
                                               <span className="text-xs font-bold">✕</span>
@@ -1542,6 +1595,7 @@ const Management = () => {
                                       <div className="flex gap-1">
                                         {defaultColors.map(color => (
                                           <button
+                                            disabled={isReadOnly}
                                             key={color}
                                             onClick={() => updateCardColor(column.id, card.id, color)}
                                             className={`w-6 h-6 rounded-full border-2 hover:scale-110 transition-transform
@@ -1559,10 +1613,11 @@ const Management = () => {
                                         value={card.notes || ''}
                                         onChange={(e) => updateCardNotes(column.id, card.id, e.target.value)}
                                         placeholder="Add notes..."
-                                        className="w-full min-h-[80px] text-sm bg-gray-50 border border-gray-200 
+                                        disabled={isReadOnly}
+                                        className={`w-full min-h-[80px] text-sm bg-gray-50 border border-gray-200 
                                                  rounded px-2 py-1 hover:border-blue-400 focus:outline-none 
                                                  focus:ring-1 focus:ring-blue-500 transition-all duration-200 
-                                                 resize-none"
+                                                 resize-none ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
                                       />
                                     </div>
 
@@ -1578,7 +1633,8 @@ const Management = () => {
                                         max="100"
                                         value={card.progress}
                                         onChange={(e) => updateCardProgress(column.id, card.id, e.target.value)}
-                                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                        disabled={isReadOnly}
+                                        className={`w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
                                       />
                                     </div>
                                   </div>
@@ -1587,12 +1643,14 @@ const Management = () => {
                             </div>
                           ))}
                         </div>
-                        <button
-                          onClick={() => addCard(column.id)}
-                          className="w-full mt-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                        >
-                          + Add Card
-                        </button>
+                        {!isReadOnly && (
+                          <button
+                            onClick={() => addCard(column.id)}
+                            className="w-full mt-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                          >
+                            + Add Card
+                          </button>
+                        )}
                       </div>
                     )}
                   </Draggable>
@@ -1600,29 +1658,31 @@ const Management = () => {
                 {provided.placeholder}
 
                 {/* Add Column Button */}
-                <div className="flex-none w-80 flex items-start">
-                  <button
-                    onClick={addColumn}
-                    className="w-full mt-2 p-3 bg-gray-100 hover:bg-gray-200 
-                             text-gray-600 rounded-lg transition-colors duration-200
-                             flex items-center justify-center gap-2"
-                  >
-                    <svg
-                      className="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
+                {!isReadOnly && (
+                  <div className="flex-none w-80 flex items-start">
+                    <button
+                      onClick={addColumn}
+                      className="w-full mt-2 p-3 bg-gray-100 hover:bg-gray-200 
+                               text-gray-600 rounded-lg transition-colors duration-200
+                               flex items-center justify-center gap-2"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                      />
-                    </svg>
-                    Add Column
-                  </button>
-                </div>
+                      <svg
+                        className="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                        />
+                      </svg>
+                      Add Column
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </Droppable>
